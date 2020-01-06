@@ -2,9 +2,9 @@
 # author=yphacker
 
 import tensorflow as tf
-from utils.bert import modeling
+from utils.albert import modeling
 from conf import config
-from conf import model_config_bert as model_config
+from conf import model_config_albert as model_config
 
 
 class Model(object):
@@ -20,10 +20,10 @@ class Model(object):
         self.global_step = tf.Variable(0, trainable=False, name='global_step')
 
         # 创建bert模型
-        bert_config = modeling.BertConfig.from_json_file(model_config.bert_config_path)
+        albert_config = modeling.AlbertConfig.from_json_file(model_config.bert_config_path)
         with tf.name_scope('bert'):
-            model = modeling.BertModel(
-                config=bert_config,
+            model = modeling.AlbertModel(
+                config=albert_config,
                 is_training=True,
                 input_ids=self.input_ids,
                 input_mask=self.input_masks,

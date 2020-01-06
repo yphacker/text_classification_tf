@@ -1,13 +1,56 @@
 # coding=utf-8
 # author=yphacker
 
+
 import numpy as np
 from conf import config
-from conf import bert_model_config
+from conf import model_config_bert
 from utils.bert import tokenization
+from utils.data_utils import get_vocab
 
 
+def get_dataset(data):
+    _, label2id = get_vocab()
+    tokenizer = tokenization.FullTokenizer(vocab_file=model_config_bert.bert_vocab_path)
 
+    def label2index(label, label2id):
+        return label2id[str(label)]
+
+    def solve(df):
+        x_data = df['review']
+        input_ids_list = []
+        input_masks_list = []
+        segment_ids_list = []
+        for text in x_data:
+            single_input_id, single_input_mask, single_segment_id = encode_data(text)
+            input_ids_list.append(single_input_id)
+            input_masks_list.append(single_input_mask)
+            segment_ids_list.append(single_segment_id)
+        input_ids = np.asarray(input_ids_list, dtype=np.int32)
+        input_masks = np.asarray(input_masks_list, dtype=np.int32)
+        segment_ids = np.asarray(segment_ids_list, dtype=np.int32)
+
+        y_tensor = None
+        if 'sentiment' in df.columns.tolist():
+            y_data = df['sentiment']
+            y_tensor = np.array([label2index(label, label2id) for label in y_data])
+        return (input_ids, input_masks, segment_ids), y_tensor
+
+    def encode_data(text, max_seq_len=config.max_seq_len):
+        input_ids, input_mask, segment_ids = convert_single_example(max_seq_len, tokenizer, text)
+        return input_ids, input_mask, segment_ids
+
+    return solve(data)
+
+
+def get_data_iter(x, y, batch_size=config.batch_size):
+    input_ids, input_masks, segment_ids = x
+    index = np.random.permutation(len(y))
+    n_batches = len(y) // batch_size
+    for batch_index in np.array_split(index, n_batches):
+        batch_input_ids, batch_input_masks, batch_segment_ids, batch_y = \
+            input_ids[batch_index], input_masks[batch_index], segment_ids[batch_index], y[batch_index]
+        yield (batch_input_ids, batch_input_masks, batch_segment_ids), batch_y
 
 
 # 生成位置嵌入
@@ -41,7 +84,7 @@ def _truncate_seq_pair(tokens_a, tokens_b, max_length):
             tokens_b.pop()
 
 
-def convert_single_example_simple(max_seq_length, tokenizer, text_a, text_b=None):
+def convert_single_example(max_seq_length, tokenizer, text_a, text_b=None):
     tokens_a = tokenizer.tokenize(text_a)
     tokens_b = None
     if text_b:
@@ -94,28 +137,3 @@ def convert_single_example_simple(max_seq_length, tokenizer, text_a, text_b=None
     assert len(input_mask) == max_seq_length
     assert len(segment_ids) == max_seq_length
     return input_ids, input_mask, segment_ids  # 对应的就是创建bert模型时候的input_ids,input_mask,segment_ids 参数
-
-
-def get_bert_param_lists(texts):
-    """
-    将数据转换成Bert能够使用的格式
-    input_ids：根据BERT-Base-Chinese checkpoint中的vocabtxt中每个字出现的index，将训练文本中的每一个字替换为vocab.txt中的index，需要添加开始CLS和结束SEP
-    input_masks：包含开始CLS和结束SEP有字就填1
-    segment_ids：seq2seq类任务同时传入两句训练关联训练数据时，有意义，传入一句训练数据则都为0
-    以上三个list需要用0补齐到max_seq_length的长度
-    """
-    # token 处理器，主要作用就是 分字，将字转换成ID。vocab_file 字典文件路径
-    tokenizer = tokenization.FullTokenizer(vocab_file=bert_model_config.bert_vocab_path)
-    input_ids_list = []
-    input_masks_list = []
-    segment_ids_list = []
-    for text in texts:
-        single_input_id, single_input_mask, single_segment_id = \
-            convert_single_example_simple(config.max_seq_len, tokenizer, text)
-        input_ids_list.append(single_input_id)
-        input_masks_list.append(single_input_mask)
-        segment_ids_list.append(single_segment_id)
-    input_ids = np.asarray(input_ids_list, dtype=np.int32)
-    input_masks = np.asarray(input_masks_list, dtype=np.int32)
-    segment_ids = np.asarray(segment_ids_list, dtype=np.int32)
-    return input_ids, input_masks, segment_ids

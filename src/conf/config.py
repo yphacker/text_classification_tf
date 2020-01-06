@@ -11,7 +11,7 @@ data_path = os.path.join(work_path, "data")
 origin_data_path = os.path.join(data_path, "origin_data")
 origin_train_path = os.path.join(origin_data_path, 'labeledTrainData.tsv')
 origin_test_path = os.path.join(origin_data_path, 'testData.tsv')
-origin_submission_path = os.path.join(origin_data_path, 'sampleSubmission.csv')
+sample_submission_path = os.path.join(origin_data_path, 'sampleSubmission.csv')
 
 process_data_path = os.path.join(data_path, "process_data")
 text_path = os.path.join(process_data_path, 'text.txt')
