@@ -29,7 +29,7 @@ model_path = os.path.join(data_path, 'model')
 
 vocab_size = 28607  # 词汇表达大小
 embedding_size = 200
-max_seq_len = 200  # 序列长度
+max_seq_len = 460
 num_labels = 2  # 类别数量
 epochs_num = 8
 batch_size = 32
