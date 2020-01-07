@@ -129,36 +129,34 @@ def train():
 
 
 def eval():
-    df = pd.read_csv(config.train_path, sep='\t', header=None, names=['label', 'text'])
-    x_test = df['review'].values.tolist()
-
-    preds = model.predict(x_test)
-    df['pred_label'] = preds
-    cols = ['pred_label', 'label', 'text']
-    train = df.ix[:, cols]
-    train.to_csv(config.train_check_path, index=False)
+    # df = pd.read_csv(config.train_path, sep='\t', header=None, names=['label', 'text'])
+    # x_test = df['review'].values.tolist()
+    #
+    # preds = model.predict(x_test)
+    # df['pred_label'] = preds
+    # cols = ['pred_label', 'label', 'text']
+    # train = df.ix[:, cols]
+    # train.to_csv(config.train_check_path, index=False)
+    pass
 
 
 def predict():
     test_df = pd.read_csv(config.test_path)
     x_test, _ = get_dataset(test_df)
+    test_iter = get_data_iter(x_test, batch_size=config.batch_size, shuffle=False)
     data_len = len(x_test)
-    num_batch = int((data_len - 1) / config.batch_size) + 1
     preds = []
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         saver = tf.train.Saver(max_to_keep=1)
         saver.restore(sess=sess, save_path=model_config.model_save_path)  # 读取保存的模型
-        for i in range(num_batch):  # 逐批次处理
-            start_id = i * config.batch_size
-            end_id = min((i + 1) * config.batch_size, data_len)
-            feed_dict = get_feed_dict(x_test[start_id:end_id], type='predict')
+        for batch_x in test_iter:  # 逐批次处理
+            feed_dict = get_feed_dict(batch_x, type='predict')
             pred = sess.run(model.prob, feed_dict=feed_dict)
             preds.extend(pred[:, 1])
-
     submission = pd.read_csv(config.sample_submission_path)
     submission['sentiment'] = preds
-    submission.to_csv(config.model_submission_path, index=False)
+    submission.to_csv(model_config.submission_path, index=False)
 
 
 def main(op):

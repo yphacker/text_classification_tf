@@ -54,25 +54,28 @@ def get_dataset(data):
     return solve(data)
 
 
-# def get_data_iter(x, y, batch_size):
-def bert_bacth_iter(x, y, batch_size=config.batch_size):
-    input_ids, input_masks, segment_ids = x
-    index = np.random.permutation(len(y))
-    n_batches = len(y) // batch_size
-    for batch_index in np.array_split(index, n_batches):
-        batch_input_ids, batch_input_masks, batch_segment_ids, batch_y = \
-            input_ids[batch_index], input_masks[batch_index], segment_ids[batch_index], y[batch_index]
-        yield (batch_input_ids, batch_input_masks, batch_segment_ids), batch_y
+# # def get_data_iter(x, y, batch_size):
+# def bert_bacth_iter(x, y=[], batch_size=config.batch_size, shuffle=True):
+#     input_ids, input_masks, segment_ids = x
+#     index = np.random.permutation(len(y))
+#     n_batches = len(y) // batch_size + 1
+#     for batch_index in np.array_split(index, n_batches):
+#         batch_input_ids, batch_input_masks, batch_segment_ids, batch_y = \
+#             input_ids[batch_index], input_masks[batch_index], segment_ids[batch_index], y[batch_index]
+#         yield (batch_input_ids, batch_input_masks, batch_segment_ids), batch_y
 
 
-def get_data_iter(x, y, batch_size=config.batch_size):
-    data_len = len(y)
-    num_batch = int((data_len - 1) / batch_size) + 1
+def get_data_iter(x, y=[], batch_size=config.batch_size, shuffle=True):
+    data_len = len(x)
 
-    indices = np.random.permutation(np.arange(data_len))
+    if shuffle:
+        indices = np.random.permutation(np.arange(data_len))
+    else:
+        indices = np.arange(len(input_ids))
     x_shuffle = x[indices]
     y_shuffle = y[indices]
 
+    num_batch = int((data_len - 1) / batch_size) + 1
     for i in range(num_batch):
         start_id = i * batch_size
         end_id = min((i + 1) * batch_size, data_len)

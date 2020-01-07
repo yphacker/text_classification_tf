@@ -43,11 +43,15 @@ def get_dataset(data):
     return solve(data)
 
 
-def get_data_iter(x, y, batch_size=config.batch_size):
+def get_data_iter(x, y=[], batch_size=config.batch_size, shuffle=True):
     input_ids, input_masks, segment_ids = x
-    index = np.random.permutation(len(y))
-    n_batches = len(y) // batch_size
-    for batch_index in np.array_split(index, n_batches):
+    data_len = len(input_ids)
+    if shuffle:
+        indices = np.random.permutation(data_len)
+    else:
+        indices = np.arange(data_len)
+    num_batch = int((data_len - 1) / batch_size) + 1
+    for batch_index in np.array_split(indices, num_batch):
         batch_input_ids, batch_input_masks, batch_segment_ids, batch_y = \
             input_ids[batch_index], input_masks[batch_index], segment_ids[batch_index], y[batch_index]
         yield (batch_input_ids, batch_input_masks, batch_segment_ids), batch_y
