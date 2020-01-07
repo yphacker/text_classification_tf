@@ -149,7 +149,7 @@ def predict():
         sess.run(tf.global_variables_initializer())
         saver = tf.train.Saver(max_to_keep=1)
         saver.restore(sess=sess, save_path=model_config.model_save_path)  # 读取保存的模型
-        for batch_x in test_iter:  # 逐批次处理
+        for batch_x, _ in test_iter:  # 逐批次处理
             feed_dict = get_feed_dict(batch_x, type='predict')
             pred = sess.run(model.prob, feed_dict=feed_dict)
             preds.extend(pred[:, 1])
