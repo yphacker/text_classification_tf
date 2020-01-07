@@ -144,7 +144,6 @@ def predict():
     test_df = pd.read_csv(config.test_path)
     x_test, _ = get_dataset(test_df)
     test_iter = get_data_iter(x_test, batch_size=config.batch_size, shuffle=False)
-    data_len = len(x_test)
     preds = []
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())

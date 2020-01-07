@@ -43,9 +43,11 @@ def get_dataset(data):
     return solve(data)
 
 
-def get_data_iter(x, y=[], batch_size=config.batch_size, shuffle=True):
+def get_data_iter(x, y=None, batch_size=config.batch_size, shuffle=True):
     input_ids, input_masks, segment_ids = x
     data_len = len(input_ids)
+    if y is None:
+        y = np.zeros(shape=(data_len,1))
     if shuffle:
         indices = np.random.permutation(data_len)
     else:

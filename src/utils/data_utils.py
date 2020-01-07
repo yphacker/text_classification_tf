@@ -65,13 +65,14 @@ def get_dataset(data):
 #         yield (batch_input_ids, batch_input_masks, batch_segment_ids), batch_y
 
 
-def get_data_iter(x, y=[], batch_size=config.batch_size, shuffle=True):
+def get_data_iter(x, y=None, batch_size=config.batch_size, shuffle=True):
     data_len = len(x)
-
+    if y is None:
+        y = np.zeros(shape=(data_len, 1))
     if shuffle:
-        indices = np.random.permutation(np.arange(data_len))
+        indices = np.random.permutation(data_len)
     else:
-        indices = np.arange(len(input_ids))
+        indices = np.arange(data_len)
     x_shuffle = x[indices]
     y_shuffle = y[indices]
 
