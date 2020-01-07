@@ -60,7 +60,7 @@ def evaluate(sess, x_val, y_val):
 
 
 def train():
-    train_df = pd.read_csv(config.train_path)
+    train_df = pd.read_csv(config.train_path, sep='\t')
     # x_train = df['review'].values.tolist()
     # y_train = df['sentiment'].values.tolist()
     #
@@ -141,7 +141,7 @@ def eval():
 
 
 def predict():
-    test_df = pd.read_csv(config.test_path)
+    test_df = pd.read_csv(config.test_path, sep='\t')
     x_test, _ = get_dataset(test_df)
     test_iter = get_data_iter(x_test, batch_size=config.batch_size, shuffle=False)
     preds = []
