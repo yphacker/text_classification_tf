@@ -8,7 +8,7 @@ import tensorflow as tf
 from importlib import import_module
 from sklearn.model_selection import train_test_split
 from conf import config
-from utils.data_utils import get_vocab, get_dataset
+from utils.data_utils import get_vocab
 
 
 def get_feed_dict(batch_x, batch_y=None, type='train'):
