@@ -77,8 +77,7 @@ class Model(object):
             # 将label进行onehot转化
             one_hot_labels = tf.one_hot(self.input_y, depth=config.num_labels, dtype=tf.float32)
             cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=one_hot_labels)
-            self.loss = tf.reduce_mean(cross_entropy) + model_config.l2RegLambda * l2Loss
-
+            self.loss = tf.reduce_mean(cross_entropy)
             # 优化器
             self.train_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss)
 
