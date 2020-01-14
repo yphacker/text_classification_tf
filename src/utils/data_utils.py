@@ -6,22 +6,17 @@ import numpy as np
 from conf import config
 
 
-def get_vocab():
+def load_vocab():
     # 将词汇-索引映射表保存为json数据，之后做inference时直接加载来处理数据
     with open(config.word2id_json_path, "r", encoding="utf-8") as f:
         word2idx = json.load(f)
 
-    with open(config.label2id_json_path, "r", encoding="utf-8") as f:
-        label2idx = json.load(f)
-    return word2idx, label2idx
-
-
-def get_word_embedding():
-    return np.load(config.word_vec_path)
+    idx2word = {v: k for k, v in word2idx.items()}
+    return word2idx, idx2word
 
 
 def get_dataset(data):
-    word2id, label2id = get_vocab()
+    word2id, label2id = load_vocab()
 
     def solve(df):
         x_data = df['review']
@@ -29,7 +24,7 @@ def get_dataset(data):
         y_tensor = None
         if 'sentiment' in df.columns.tolist():
             y_data = df['sentiment']
-            y_tensor = np.array([label2index(label, label2id) for label in y_data])
+            y_tensor = np.array([label for label in y_data])
         return x_tensor, y_tensor
 
     def encode_data(text_str, word_dict, max_seq_len=config.max_seq_len):
@@ -54,17 +49,6 @@ def get_dataset(data):
     return solve(data)
 
 
-# # def get_data_iter(x, y, batch_size):
-# def bert_bacth_iter(x, y=[], batch_size=config.batch_size, shuffle=True):
-#     input_ids, input_masks, segment_ids = x
-#     index = np.random.permutation(len(y))
-#     n_batches = len(y) // batch_size + 1
-#     for batch_index in np.array_split(index, n_batches):
-#         batch_input_ids, batch_input_masks, batch_segment_ids, batch_y = \
-#             input_ids[batch_index], input_masks[batch_index], segment_ids[batch_index], y[batch_index]
-#         yield (batch_input_ids, batch_input_masks, batch_segment_ids), batch_y
-
-
 def get_data_iter(x, y=None, batch_size=config.batch_size, shuffle=True):
     data_len = len(x)
     if y is None:
@@ -83,12 +67,27 @@ def get_data_iter(x, y=None, batch_size=config.batch_size, shuffle=True):
         yield x_shuffle[start_id:end_id], y_shuffle[start_id:end_id]
 
 
-def label2index(label, label2id):
-    """
-    将标签转换成索引表示
-    """
-    return label2id[str(label)]
+def build_embedding_pretrained():
+    def get_coefs(word, *arr):
+        return word, np.asarray(arr, dtype='float32')
+
+    word2idx, idx2word = load_vocab()
+    embedding_index = dict(get_coefs(*o.strip().split(" ")) for o in open(config.word_embedding_path))
+
+    embedding_matrix = np.zeros((config.num_vocab, config.embed_dim))
+    for word, i in word2idx.items():
+        embedding_vector = embedding_index.get(word)
+        if embedding_vector is not None:
+            embedding_matrix[i] = embedding_vector
+
+    np.savez_compressed(config.pretrain_embedding_path, embeddings=embedding_matrix)
+
+
+def get_pretrain_embedding():
+    return np.load(config.pretrain_embedding_path)["embeddings"].astype('float32')
 
 
 if __name__ == '__main__':
-    word2id, label2id = get_vocab()
+    word2id, id2word = load_vocab()
+    print(len(word2id))
+    # build_embedding_pretrained()

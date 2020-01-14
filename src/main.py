@@ -8,7 +8,7 @@ import tensorflow as tf
 from importlib import import_module
 from sklearn.model_selection import train_test_split
 from conf import config
-from utils.data_utils import get_vocab
+from utils.data_utils import load_vocab
 
 
 def get_feed_dict(batch_x, batch_y=None, type='train'):
@@ -61,6 +61,7 @@ def evaluate(sess, x_val, y_val):
 
 def train():
     train_df = pd.read_csv(config.train_path, sep='\t')
+    # train_df = train_df[:50]
     # x_train = df['review'].values.tolist()
     # y_train = df['sentiment'].values.tolist()
     #
@@ -177,7 +178,7 @@ if __name__ == '__main__':
     config.batch_size = args.batch_size
     config.epochs_num = args.epochs_num
 
-    word2id, label2id = get_vocab()
+    word2id, id2word = load_vocab()
 
     model_name = args.model_name
     if model_name in ['bert', 'albert']:

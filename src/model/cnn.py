@@ -3,6 +3,7 @@
 
 import tensorflow as tf
 from conf import config, model_config_cnn as model_config
+from utils.data_utils import get_pretrain_embedding
 
 
 # # 构建模型
@@ -119,12 +120,17 @@ class Model(object):
         self.input_y = tf.placeholder(tf.int32, shape=[None], name='input_y')
         self.keep_prob = tf.placeholder(tf.float32, name='keep_prob')
 
-        # define embedding layer
-        with tf.variable_scope('embedding'):
-            # 标准正态分布初始化
-            input_embedding = tf.Variable(
-                tf.truncated_normal(shape=[config.vocab_size, config.embedding_size], stddev=0.1),
-                name='encoder_embedding')
+        if config.pretrain_embedding:
+            with tf.name_scope("embedding"):
+                # 利用预训练的词向量初始化词嵌入矩阵
+                embedding = get_pretrain_embedding()
+                input_embedding = tf.Variable(tf.cast(embedding, dtype=tf.float32, name="word2vec"), name="W")
+        else:
+            with tf.variable_scope('embedding'):
+                # 标准正态分布初始化
+                input_embedding = tf.Variable(
+                    tf.truncated_normal(shape=[config.num_vocab, config.embed_dim], stddev=0.1),
+                    name='embedding')
 
         with tf.name_scope("cnn"):
             # CNN layer
@@ -158,5 +164,3 @@ class Model(object):
             # 准确率
             correct_pred = tf.equal(tf.argmax(one_hot_labels, 1), self.pred)
             self.accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32), name='acc')
-
-

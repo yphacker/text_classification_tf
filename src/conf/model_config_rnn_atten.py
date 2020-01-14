@@ -2,8 +2,6 @@
 # author=yphacker
 
 
-import os
-from conf import config
 
 hidden_size = [256, 256]  # 单层LSTM结构的神经元个数
 

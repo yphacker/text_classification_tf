@@ -2,8 +2,6 @@
 # author=yphacker
 
 
-import os
-from conf import config
 
 filters = 128  # 内层一维卷积核的数量，外层卷积核的数量应该等于embeddingSize，因为要确保每个layer后的输出维度和输入维度是一致的。
 numHeads = 8  # Attention 的头数
