@@ -32,6 +32,7 @@ class Model(object):
 
         # 定义两层双向LSTM的模型结构
         with tf.name_scope("Bi-LSTM"):
+            x_input_embedded = tf.nn.embedding_lookup(input_embedding, self.input_x)
             for idx, hiddenSize in enumerate(model_config.hidden_size):
                 with tf.name_scope("Bi-LSTM" + str(idx)):
                     # 定义前向LSTM结构
@@ -47,15 +48,15 @@ class Model(object):
                     # outputs是一个元祖(output_fw, output_bw)，其中两个元素的维度都是[batch_size, max_time, hidden_size],fw和bw的hidden_size一样
                     # self.current_state 是最终的状态，二元组(state_fw, state_bw)，state_fw=[batch_size, s]，s是一个元祖(h, c)
                     outputs, self.current_state = tf.nn.bidirectional_dynamic_rnn(lstmFwCell, lstmBwCell,
-                                                                                  self.x_input_embedded,
+                                                                                  x_input_embedded,
                                                                                   dtype=tf.float32,
                                                                                   scope="bi-lstm" + str(idx))
 
                     # 对outputs中的fw和bw的结果拼接 [batch_size, time_step, hidden_size * 2]
-                    self.x_input_embedded = tf.concat(outputs, 2)
+                    x_input_embedded = tf.concat(outputs, 2)
 
         # 去除最后时间步的输出作为全连接的输入
-        finalOutput = self.x_input_embedded[:, -1, :]
+        finalOutput = x_input_embedded[:, -1, :]
 
         outputSize = model_config.hidden_size[-1] * 2  # 因为是双向LSTM，最终的输出值是fw和bw的拼接，因此要乘以2
         output = tf.reshape(finalOutput, [-1, outputSize])  # reshape成全连接层的输入维度

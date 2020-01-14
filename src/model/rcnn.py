@@ -10,7 +10,6 @@
 4，hidden_size上每个位置的值都取时间步上最大的值，类似于max-pool
 5，softmax分类
 """
-import numpy as np
 import tensorflow as tf
 from conf import config
 from conf import model_config_rcnn as model_config
@@ -41,6 +40,7 @@ class Model(object):
                     name='embedding')
 
         with tf.name_scope("Bi-LSTM"):
+            x_input_embedded = tf.nn.embedding_lookup(input_embedding, self.input_x)
             for idx, hiddenSize in enumerate(model_config.hidden_size):
                 with tf.name_scope("Bi-LSTM" + str(idx)):
                     # 定义前向LSTM结构
@@ -57,15 +57,15 @@ class Model(object):
                     # 其中两个元素的维度都是[batch_size, max_time, hidden_size],fw和bw的hidden_size一样
                     # self.current_state 是最终的状态，二元组(state_fw, state_bw)，state_fw=[batch_size, s]，s是一个元祖(h, c)
                     outputs_, self.current_state = tf.nn.bidirectional_dynamic_rnn(lstmFwCell, lstmBwCell,
-                                                                                   self.embeddedWords_,
+                                                                                   x_input_embedded,
                                                                                    dtype=tf.float32,
                                                                                    scope="bi-lstm" + str(idx))
 
                     # 对outputs中的fw和bw的结果拼接 [batch_size, time_step, hidden_size * 2], 传入到下一层Bi-LSTM中
-                    self.embeddedWords_ = tf.concat(outputs_, 2)
+                    x_input_embedded = tf.concat(outputs_, 2)
 
         # 将最后一层Bi-LSTM输出的结果分割成前向和后向的输出
-        fwOutput, bwOutput = tf.split(self.embeddedWords_, 2, -1)
+        fwOutput, bwOutput = tf.split(x_input_embedded, 2, -1)
 
         with tf.name_scope("context"):
             shape = [tf.shape(fwOutput)[0], 1, tf.shape(fwOutput)[2]]
@@ -74,8 +74,8 @@ class Model(object):
 
         # 将前向，后向的输出和最早的词向量拼接在一起得到最终的词表征
         with tf.name_scope("wordRepresentation"):
-            self.wordRepre = tf.concat([self.contextLeft, self.embeddedWords, self.contextRight], axis=2)
-            wordSize = model_config.hidden_size[-1] * 2 + config.embedding_size
+            self.wordRepre = tf.concat([self.contextLeft, x_input_embedded, self.contextRight], axis=2)
+            wordSize = model_config.hidden_size[-1] * 2 + config.embed_dim
 
         with tf.name_scope("textRepresentation"):
             outputSize = model_config.output_size
@@ -90,20 +90,14 @@ class Model(object):
 
         # 全连接层的输出
         with tf.name_scope("output"):
-            outputW = tf.get_variable(
-                "outputW",
+            output_w = tf.get_variable(
+                "output_w",
                 shape=[outputSize, config.num_labels],
                 initializer=tf.contrib.layers.xavier_initializer())
 
-            outputB = tf.Variable(tf.constant(0.1, shape=[config.num_labels]), name="outputB")
-            l2Loss += tf.nn.l2_loss(outputW)
-            l2Loss += tf.nn.l2_loss(outputB)
-            logits = tf.nn.xw_plus_b(output, outputW, outputB, name="logits")
+            output_b = tf.Variable(tf.constant(0.1, shape=[config.num_labels]), name="output_b")
+            logits = tf.nn.xw_plus_b(output, output_w, output_b, name="logits")
             self.y_pred = tf.argmax(tf.nn.softmax(logits), 1, name='y_pred')  # 预测类别
-            # if config.num_labels == 1:
-            #     self.predictions = tf.cast(tf.greater_equal(self.logits, 0.0), tf.float32, name="predictions")
-            # elif config.num_labels > 1:
-            #     self.predictions = tf.argmax(self.logits, axis=-1, name="predictions")
 
         # 计算二元交叉熵损失
         with tf.name_scope("loss"):
@@ -119,4 +113,3 @@ class Model(object):
             # 准确率
             correct_pred = tf.equal(tf.argmax(one_hot_labels, 1), self.y_pred)
             self.accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32), name='acc')
-
