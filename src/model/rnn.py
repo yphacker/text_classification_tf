@@ -63,13 +63,13 @@ class Model(object):
 
         # 全连接层的输出
         with tf.name_scope("output"):
-            outputW = tf.get_variable(
-                "outputW",
+            output_w = tf.get_variable(
+                "output_w",
                 shape=[outputSize, config.num_labels],
                 initializer=tf.contrib.layers.xavier_initializer())
 
-            outputB = tf.Variable(tf.constant(0.1, shape=[config.num_labels]), name="outputB")
-            logits = tf.nn.xw_plus_b(output, outputW, outputB, name="logits")
+            output_b = tf.Variable(tf.constant(0.1, shape=[config.num_labels]), name="outputB")
+            logits = tf.nn.xw_plus_b(output, output_w, output_b, name="logits")
             self.y_pred = tf.argmax(tf.nn.softmax(logits), 1, name='y_pred')  # 预测类别
 
         # 计算二元交叉熵损失

@@ -24,8 +24,6 @@ class Model(object):
         self.input_x = tf.placeholder(tf.int32, [None, config.max_seq_len], name="input_x")
         self.input_y = tf.placeholder(tf.int32, [None], name="input_y")
         self.keep_prob = tf.placeholder(tf.float32, name="keep_prob")
-        # 定义l2损失
-        l2Loss = tf.constant(0.0)
 
         if config.pretrain_embedding:
             with tf.name_scope("embedding"):
@@ -41,6 +39,7 @@ class Model(object):
 
         with tf.name_scope("Bi-LSTM"):
             x_input_embedded = tf.nn.embedding_lookup(input_embedding, self.input_x)
+            x_input_embedded_ = x_input_embedded
             for idx, hiddenSize in enumerate(model_config.hidden_size):
                 with tf.name_scope("Bi-LSTM" + str(idx)):
                     # 定义前向LSTM结构
@@ -62,10 +61,10 @@ class Model(object):
                                                                                    scope="bi-lstm" + str(idx))
 
                     # 对outputs中的fw和bw的结果拼接 [batch_size, time_step, hidden_size * 2], 传入到下一层Bi-LSTM中
-                    x_input_embedded = tf.concat(outputs_, 2)
+                    x_input_embedded_ = tf.concat(outputs_, 2)
 
         # 将最后一层Bi-LSTM输出的结果分割成前向和后向的输出
-        fwOutput, bwOutput = tf.split(x_input_embedded, 2, -1)
+        fwOutput, bwOutput = tf.split(x_input_embedded_, 2, -1)
 
         with tf.name_scope("context"):
             shape = [tf.shape(fwOutput)[0], 1, tf.shape(fwOutput)[2]]
@@ -104,7 +103,7 @@ class Model(object):
             one_hot_labels = tf.one_hot(self.input_y, depth=config.num_labels, dtype=tf.float32)
             cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=one_hot_labels)
 
-            self.loss = tf.reduce_mean(cross_entropy) + model_config.l2RegLambda * l2Loss
+            self.loss = tf.reduce_mean(cross_entropy)
 
             # 优化器
             self.train_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss)
