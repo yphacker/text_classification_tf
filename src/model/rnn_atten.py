@@ -71,11 +71,8 @@ class Model(object):
 
             output_b = tf.Variable(tf.constant(0.1, shape=[config.num_labels]), name="outputB")
             logits = tf.nn.xw_plus_b(output, output_w, output_b, name="logits")
-            self.y_pred = tf.argmax(tf.nn.softmax(logits), 1, name='y_pred')
-            # if config.num_labels == 1:
-            #     self.predictions = tf.cast(tf.greater_equal(self.logits, 0.0), tf.float32, name="predictions")
-            # elif config.num_labels > 1:
-            #     self.predictions = tf.argmax(self.logits, axis=-1, name="predictions")
+            self.prob = tf.nn.softmax(logits, name='prob')
+            self.y_pred = tf.argmax(self.prob, 1, name='y_pred')
 
         # 计算二元交叉熵损失
         with tf.name_scope("loss"):
