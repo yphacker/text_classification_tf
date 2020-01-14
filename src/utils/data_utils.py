@@ -1,16 +1,51 @@
 # coding=utf-8
 # author=yphacker
 
-import json
+import os
+import re
 import numpy as np
+import pandas as pd
+import pickle as pkl
 from conf import config
 
 
-def load_vocab():
-    # 将词汇-索引映射表保存为json数据，之后做inference时直接加载来处理数据
-    with open(config.word2id_json_path, "r", encoding="utf-8") as f:
-        word2idx = json.load(f)
+def clean_text(text):
+    text = text.replace('\n', ' ').lower()
+    text = re.sub("[^a-zA-Z]", ' ', text)
+    text = re.sub(r"\s+", ' ', text)
+    text = text.strip()
+    return text
 
+
+def build_vocab():
+    tokenizer = lambda x: x.split(' ')  # 以词为单位构建词表(数据集中词之间以空格隔开)
+    # tokenizer = lambda x: [y for y in x]  # 以字为单位构建词表
+    vocab_dic = {}
+    vocab_max_size = 100000
+    vocab_min_freq = 5
+
+    train_df = pd.read_csv(config.train_path, sep='\t')
+    texts = train_df['review'].values.tolist()
+    for text in texts:
+        if not text:
+            continue
+        text = clean_text(text)
+        for word in tokenizer(text):
+            vocab_dic[word] = vocab_dic.get(word, 0) + 1
+    vocab_list = sorted([_ for _ in vocab_dic.items() if _[1] >= vocab_min_freq],
+                        key=lambda x: x[1], reverse=True)[:vocab_max_size]
+    vocab_dic = {word_count[0]: idx + 2 for idx, word_count in enumerate(vocab_list)}
+    vocab_dic.update({'_PAD_': 0, '_UNK_': 1})
+    print(len(vocab_dic))
+    pkl.dump(vocab_dic, open(config.vocab_path, 'wb'))
+    return vocab_dic
+
+
+def load_vocab():
+    if os.path.exists(config.vocab_path):
+        word2idx = pkl.load(open(config.vocab_path, 'rb'))
+    else:
+        word2idx = build_vocab()
     idx2word = {v: k for k, v in word2idx.items()}
     return word2idx, idx2word
 
@@ -20,7 +55,7 @@ def get_dataset(data):
 
     def solve(df):
         x_data = df['review']
-        x_tensor = np.array([encode_data(text, word2id) for text in x_data])
+        x_tensor = np.array([encode_data(clean_text(text), word2id) for text in x_data])
         y_tensor = None
         if 'sentiment' in df.columns.tolist():
             y_data = df['sentiment']
@@ -35,10 +70,7 @@ def get_dataset(data):
         text_list = text_str.strip().split(' ')
         text_ids = list()
         for item in text_list:
-            if item in word_dict:
-                text_ids.append(word_dict[item])
-            else:
-                text_ids.append(word_dict['_UNK_'])
+            text_ids.append(word_dict.get(item, word_dict['_UNK_']))
 
         if len(text_ids) < max_seq_len:
             text_ids = text_ids + [word_dict['_PAD_'] for _ in range(max_seq_len - len(text_ids))]
@@ -88,6 +120,6 @@ def get_pretrain_embedding():
 
 
 if __name__ == '__main__':
-    word2id, id2word = load_vocab()
-    print(len(word2id))
-    # build_embedding_pretrained()
+    # word2id, id2word = load_vocab()
+    # print(len(word2id))
+    build_embedding_pretrained()

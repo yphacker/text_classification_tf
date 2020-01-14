@@ -43,7 +43,7 @@ def get_word_embedding(words):
 
 # 生成词向量的词汇表
 def gen_vocabulary():
-    train = pd.read_csv(config.train_path)
+    train = pd.read_csv(config.train_path, sep='\t')
     texts = train.review.tolist()
     labels = train.sentiment.tolist()
 

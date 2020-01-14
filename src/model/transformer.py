@@ -4,9 +4,7 @@
 import numpy as np
 import tensorflow as tf
 from conf import config
-from conf import transformer_model_config as model_config
-from utils.train_utils import get_word_embedding, get_vocabulary, word2index, label2index
-from utils.model_utils import fixedPositionEmbedding, batch_iter
+from conf import model_config_transformer as model_config
 
 
 class Model(object):
@@ -265,103 +263,3 @@ class Model(object):
 
         return positionEmbedded
 
-    def train(self, x_train, y_train, x_val, y_val):
-        # 初始化词汇-索引映射表和词向量矩阵
-        word2id, label2id = get_vocabulary()
-        x_train = np.array([word2index(text, word2id) for text in x_train])
-        x_val = np.array([word2index(text, word2id) for text in x_val])
-        y_train = np.array([label2index(label, label2id) for label in y_train])
-        y_val = np.array([label2index(label, label2id) for label in y_val])
-
-        print('Training and evaluating...')
-        best_acc_val = 0.0  # 最佳验证集准确率
-        last_improved_step = 0  # 记录上一次提升批次
-        data_len = len(y_train)
-        adjust_num = 0
-        cur_step = 0
-        step_sum = (int((data_len - 1) / config.batch_size) + 1) * config.epochs_num
-        flag = True
-        # 配置 Saver
-        saver = tf.train.Saver(max_to_keep=1)
-        # session_conf = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
-        # session_conf.gpu_options.allow_growth = True
-        # session_conf.gpu_options.per_process_gpu_memory_fraction = 0.9  # 配置gpu占用率
-        with tf.Session() as sess:
-            sess.run(tf.global_variables_initializer())
-            for epoch in range(config.epochs_num):
-                for batch_x, batch_y in batch_iter(x_train, y_train):
-                    feed_dict = {
-                        self.input_x: batch_x,
-                        self.input_y: batch_y,
-                        self.keep_prob: model_config.keep_prob,
-                        self.embedd_pos: fixedPositionEmbedding(len(batch_y), config.max_seq_len)
-                    }
-                    sess.run(self.train_op, feed_dict=feed_dict)
-                    cur_step += 1
-                    if cur_step % config.print_per_batch == 0:
-                        fetches = [self.loss, self.accuracy]
-                        loss_train, acc_train = sess.run(fetches, feed_dict=feed_dict)
-                        loss_val, acc_val = self.evaluate(sess, x_val, y_val)
-                        if acc_val > best_acc_val:
-                            best_acc_val = acc_val
-                            last_improved_step = cur_step
-                            saver.save(sess=sess, save_path=model_config.model_save_path)
-                            improved_str = '*'
-                        else:
-                            improved_str = ''
-                        cur_step_str = str(cur_step) + "/" + str(step_sum)
-                        msg = 'the Current step: {0}, Train Loss: {1:>6.2}, Train Acc: {2:>7.2%},' \
-                              + ' Val Loss: {3:>6.2}, Val Acc: {4:>7.2%}, {5}'
-                        print(msg.format(cur_step_str, loss_train, acc_train, loss_val, acc_val, improved_str))
-                    if cur_step - last_improved_step >= config.improvement_step:
-                        last_improved_step = cur_step
-                        print("No optimization for a long time, auto adjust learning_rate...")
-                        # learning_rate = learning_rate_decay(learning_rate)
-                        adjust_num += 1
-                        if adjust_num > 3:
-                            print("No optimization for a long time, auto-stopping...")
-                            flag = False
-                    if not flag:
-                        break
-                if not flag:
-                    break
-
-    def evaluate(self, sess, x_val, y_val):
-        data_len = len(y_val)
-        total_loss = 0.0
-        total_acc = 0.0
-        for batch_x_val, batch_y_val in batch_iter(x_val, y_val):
-            feed_dict = {
-                self.input_x: batch_x_val,
-                self.input_y: batch_y_val,
-                self.keep_prob: 1.0,
-                self.embedd_pos: fixedPositionEmbedding(len(batch_y_val), config.max_seq_len)
-            }
-            batch_len = len(batch_y_val)
-            _loss, _acc = sess.run([self.loss, self.accuracy], feed_dict=feed_dict)
-            total_loss += _loss * batch_len
-            total_acc += _acc * batch_len
-        return total_loss / data_len, total_acc / data_len
-
-    def predict(self, x_test):
-        word2id, label2id = get_vocabulary()
-        x_test = [word2index(text, word2id) for text in x_test]
-
-        data_len = len(x_test)
-        num_batch = int((data_len - 1) / config.batch_size) + 1
-        preds = []
-        with tf.Session() as sess:
-            sess.run(tf.global_variables_initializer())
-            saver = tf.train.Saver(max_to_keep=1)
-            saver.restore(sess=sess, save_path=model_config.model_save_path)  # 读取保存的模型
-            for i in range(num_batch):  # 逐批次处理
-                start_id = i * config.batch_size
-                end_id = min((i + 1) * config.batch_size, data_len)
-                feed_dict = {
-                    self.input_x: x_test[start_id:end_id],
-                    self.keep_prob: 1.0,
-                    self.embedd_pos: fixedPositionEmbedding(end_id - start_id, config.max_seq_len)
-                }
-                pred = sess.run(self.y_pred, feed_dict=feed_dict)
-                preds.extend(pred)
-        return preds

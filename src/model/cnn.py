@@ -149,13 +149,16 @@ class Model(object):
             # 分类器
             logits = tf.layers.dense(fc, config.num_labels, name='fc2')
             self.prob = tf.nn.softmax(logits, name='prob')
-            self.pred = tf.argmax(tf.nn.softmax(logits), 1, name='y_pred')  # 预测类别
+            # self.pred = tf.argmax(tf.nn.softmax(logits), 1, name='y_pred')  # 预测类别
+            log_probs = tf.nn.log_softmax(logits, axis=-1)
+            self.pred = tf.argmax(log_probs, 1, name='pred')
 
         with tf.name_scope("optimize"):
             # 将label进行onehot转化
             one_hot_labels = tf.one_hot(self.input_y, depth=config.num_labels, dtype=tf.float32)
             # 损失函数，交叉熵
-            cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=one_hot_labels)
+            # cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=one_hot_labels)
+            cross_entropy = -tf.reduce_sum(one_hot_labels * log_probs, axis=-1)
             self.loss = tf.reduce_mean(cross_entropy)
             # 优化器
             self.train_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss)

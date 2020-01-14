@@ -85,25 +85,3 @@ class Model(object):
             gradients, _ = tf.clip_by_global_norm(gradients, model_config.grad_clip)
             self.train_op = optimizer.apply_gradients(zip(gradients, variables), global_step=self.global_step)
 
-    # def predict(self, x_test):
-    #     data_len = len(x_test)
-    #     num_batch = int((data_len - 1) / config.batch_size) + 1
-    #     test_input_ids, test_masks_ids, test_segment_ids = get_bert_param_lists(x_test)
-    #     preds = []
-    #     with tf.Session() as sess:
-    #         sess.run(tf.global_variables_initializer())
-    #         # saver用时定义，放在__init__里会有问题
-    #         saver = tf.train.Saver(max_to_keep=1)
-    #         saver.restore(sess=sess, save_path=model_config.model_save_path)  # 读取保存的模型
-    #         for i in range(num_batch):  # 逐批次处理
-    #             start_id = i * config.batch_size
-    #             end_id = min((i + 1) * config.batch_size, data_len)
-    #             feed_dict = {
-    #                 self.input_ids: test_input_ids[start_id: end_id],
-    #                 self.input_masks: test_masks_ids[start_id: end_id],
-    #                 self.segment_ids: test_segment_ids[start_id: end_id],
-    #                 self.is_training: False,
-    #             }
-    #             pred = sess.run(self.prob, feed_dict=feed_dict)
-    #             preds.extend(pred[:, 1])
-    #     return preds
