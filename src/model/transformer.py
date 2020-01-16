@@ -5,13 +5,10 @@ import numpy as np
 import tensorflow as tf
 from conf import config
 from conf import model_config_transformer as model_config
+from utils.data_utils import get_pretrain_embedding
 
 
 class Model(object):
-    """
-    Transformer Encoder 用于文本分类
-    """
-
     def __init__(self):
         self.learning_rate = model_config.learning_rate
         # 定义模型的输入
@@ -20,21 +17,23 @@ class Model(object):
         self.keep_prob = tf.placeholder(tf.float32, name="keep_prob")
         self.embedd_pos = tf.placeholder(tf.float32, [None, config.max_seq_len, config.max_seq_len], name="embedd_pos")
 
-        self.word_embedding = get_word_embedding()
-
-        # 定义l2损失
-        l2Loss = tf.constant(0.0)
-
         # 词嵌入层, 位置向量的定义方式有两种：一是直接用固定的one-hot的形式传入，然后和词向量拼接，在当前的数据集上表现效果更好
         # 另一种就是按照论文中的方法实现，这样的效果反而更差，可能是增大了模型的复杂度，在小数据集上表现不佳。
 
-        with tf.name_scope("embedding"):
-            # 利用预训练的词向量初始化词嵌入矩阵
-            self.W = tf.Variable(tf.cast(self.word_embedding, dtype=tf.float32, name="word2vec"), name="W")
-            # 利用词嵌入矩阵将输入的数据中的词转换成词向量，维度[batch_size, sequence_length, embedding_size]
-            self.embedded = tf.nn.embedding_lookup(self.W, self.input_x)
-            self.embeddedWords = tf.concat([self.embedded, self.embedd_pos], -1)
+        if config.pretrain_embedding:
+            with tf.name_scope("embedding"):
+                # 利用预训练的词向量初始化词嵌入矩阵
+                embedding = get_pretrain_embedding()
+                input_embedding = tf.Variable(tf.cast(embedding, dtype=tf.float32, name="word2vec"), name="W")
+        else:
+            with tf.variable_scope('embedding'):
+                # 标准正态分布初始化
+                input_embedding = tf.Variable(
+                    tf.truncated_normal(shape=[config.num_vocab, config.embed_dim], stddev=0.1),
+                    name='embedding')
 
+        self.embedded = tf.nn.embedding_lookup(input_embedding, self.input_x)
+        self.embeddedWords = tf.concat([self.embedded, self.embedd_pos], -1)
         with tf.name_scope("transformer"):
             for i in range(model_config.numBlocks):
                 with tf.name_scope("transformer-{}".format(i + 1)):
@@ -51,61 +50,23 @@ class Model(object):
 
         outputSize = outputs.get_shape()[-1].value
 
-        #         with tf.name_scope("wordEmbedding"):
-        #             self.W = tf.Variable(tf.cast(wordEmbedding, dtype=tf.float32, name="word2vec"), name="W")
-        #             self.wordEmbedded = tf.nn.embedding_lookup(self.W, self.input_x)
-
-        #         with tf.name_scope("positionEmbedding"):
-        #             print(self.wordEmbedded)
-        #             self.positionEmbedded = self._positionEmbedding()
-
-        #         self.embeddedWords = self.wordEmbedded + self.positionEmbedded
-
-        #         with tf.name_scope("transformer"):
-        #             for i in range(config.model.numBlocks):
-        #                 with tf.name_scope("transformer-{}".format(i + 1)):
-
-        #                     # 维度[batch_size, sequence_length, embedding_size]
-        #                     multiHeadAtt = self._multiheadAttention(rawKeys=self.wordEmbedded, queries=self.embeddedWords,
-        #                                                             keys=self.embeddedWords)
-        #                     # 维度[batch_size, sequence_length, embedding_size]
-        #                     self.embeddedWords = self._feedForward(multiHeadAtt, [config.model.filters, config.model.embeddingSize])
-
-        #             outputs = tf.reshape(self.embeddedWords, [-1, config.max_seq_len * (config.model.embeddingSize)])
-
-        #         outputSize = outputs.get_shape()[-1].value
-
         with tf.name_scope("dropout"):
             outputs = tf.nn.dropout(outputs, keep_prob=self.keep_prob)
 
         # 全连接层的输出
         with tf.name_scope("output"):
-            outputW = tf.get_variable(
-                "outputW",
+            output_w = tf.get_variable(
+                "output_w",
                 shape=[outputSize, config.num_labels],
                 initializer=tf.contrib.layers.xavier_initializer())
-
-            outputB = tf.Variable(tf.constant(0.1, shape=[config.num_labels]), name="outputB")
-            l2Loss += tf.nn.l2_loss(outputW)
-            l2Loss += tf.nn.l2_loss(outputB)
-            logits = tf.nn.xw_plus_b(outputs, outputW, outputB, name="logits")
+            output_b = tf.Variable(tf.constant(0.1, shape=[config.num_labels]), name="outputB")
+            logits = tf.nn.xw_plus_b(outputs, output_w, output_b, name="logits")
             self.y_pred = tf.argmax(tf.nn.softmax(logits), 1, name='y_pred')  # 预测类别
-            # if config.num_labels == 1:
-            #     self.predictions = tf.cast(tf.greater_equal(self.logits, 0.0), tf.float32, name="predictions")
-            # elif config.num_labels > 1:
-            #     self.predictions = tf.argmax(self.logits, axis=-1, name="predictions")
 
         # 计算二元交叉熵损失
         with tf.name_scope("loss"):
             one_hot_labels = tf.one_hot(self.input_y, depth=config.num_labels, dtype=tf.float32)
             cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=one_hot_labels)
-            # if config.num_labels == 1:
-            #     losses = tf.nn.sigmoid_cross_entropy_with_logits(logits=self.logits,
-            #                                                      labels=tf.cast(tf.reshape(self.input_y, [-1, 1]),
-            #                                                                     dtype=tf.float32))
-            # elif config.num_labels > 1:
-            #     losses = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.logits, labels=self.input_y)
-
             self.loss = tf.reduce_mean(cross_entropy) + model_config.l2RegLambda * l2Loss
 
             # 优化器
@@ -262,4 +223,3 @@ class Model(object):
         positionEmbedded = tf.nn.embedding_lookup(positionEmbedding_, positionIndex)
 
         return positionEmbedded
-
